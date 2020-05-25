@@ -2,17 +2,17 @@ import pandas as pd
 import numpy as np
 from zlib import crc32
 
-def print2(df, colWidth=10, display_width=400):  
-    setPdDisplayOptions(len(df), colWidth, display_width)
+def print2(df, colWidth=10, numCols = None, display_width=400):  
+    setPdDisplayOptions(len(df), colWidth, numCols, display_width)
     printWithUpperLowerBreakLines(df.rename(columns=lambda x: x[:colWidth - 1] + '/' if len(x) > colWidth else x))
     resetPdDisplayOptions()
     
-def setPdDisplayOptions(maxRows, colWidth, display_width):
+def setPdDisplayOptions(maxRows, colWidth, numCols, display_width):
     pd.set_option('display.max_colwidth', colWidth)
     pd.set_option('expand_frame_repr', True)
     pd.set_option('precision', 2)
     pd.set_option('display.max_rows', maxRows)
-    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_columns', numCols)
     pd.set_option('display.width', display_width)
     
 def printWithUpperLowerBreakLines(x):
@@ -55,14 +55,15 @@ def compareCategoryProportionsSamples(originalData, colName, randomData, stratif
             df["stratifiedProportions"] =  stratifiedProportions
         return df
     
-def getCorrVector(df, colName):
+def ascendingCorrelation(df, colName):
     corr_matrix = df.corr()
     corr_target = corr_matrix[colName].sort_values(ascending=False)
     mostCorrelatedVarNames = list(corr_target.index)
-    return corr_target, mostCorrelatedVarNames
+    return corr_matrix, corr_target, mostCorrelatedVarNames
 
 def display_scores(scores):
     print("")
     print("Scores:", scores)
     print("Mean:", scores.mean())
     print("Standard deviation:", scores.std())
+    
