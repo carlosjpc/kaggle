@@ -7,10 +7,11 @@ import statsmodels.api as sm
 import scipy
 from scipy.stats._continuous_distns import _distn_names
 
-plt.style.use('ggplot')
+# plt.style.use('ggplot')
 
-def fit_scipy_distributions(data, bins=100, dist_names=_distn_names, plot_dist=True):
-       
+def fit_scipy_distributions(data, bins=100, dist_names=_distn_names, plot_dist=False):
+    label = data.name
+    data = data.to_numpy()
     # Returns un-normalised (i.e. counts) histogram
     y, x = np.histogram(np.array(data), bins=bins)
     
@@ -49,7 +50,7 @@ def fit_scipy_distributions(data, bins=100, dist_names=_distn_names, plot_dist=T
     
     if plot_dist:
         plt.legend(loc=1)
-        ax.set_xlabel('variable')
+        ax.set_xlabel(label)
         ax.set_ylabel('count')
         plt.show()
 
