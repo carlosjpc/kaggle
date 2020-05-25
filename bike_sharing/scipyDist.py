@@ -6,8 +6,8 @@ import pandas as pd
 import statsmodels.api as sm
 import scipy
 from scipy.stats._continuous_distns import _distn_names
-
-# plt.style.use('ggplot')
+import warnings
+warnings.filterwarnings("ignore")
 
 def fit_scipy_distributions(data, bins=100, dist_names=_distn_names):
     label = data.name
@@ -26,7 +26,7 @@ def fit_scipy_distributions(data, bins=100, dist_names=_distn_names):
     parameters=[]
     for dist_name in dist_names:
         i+=1
-        print("Dist ("+str(i)+"/"+str(len(dist_names))+"): "+dist_name)
+        # print("Dist ("+str(i)+"/"+str(len(dist_names))+"): "+dist_name)
         dist = getattr(scipy.stats, dist_name)
         params = dist.fit(np.array(data))
         arg = params[:-2]
@@ -67,7 +67,7 @@ def plot_distributions(data, dist_info, bins=100):
     for d in range(len(dist_names)):
         dist_name = dist_names.iloc[d]
         params = parameters.iloc[d]
-        print("Dist ("+str(d)+"/"+str(len(dist_names))+"): "+dist_name)
+        # print("Dist ("+str(d)+"/"+str(len(dist_names))+"): "+dist_name)
         dist = getattr(scipy.stats, dist_name)
         # params = dist.fit(np.array(data))
         arg = params[:-2]

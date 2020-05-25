@@ -1,3 +1,4 @@
+#%% IMPORT
 import os
 import pandas as pd
 import numpy as np
@@ -26,6 +27,7 @@ bikes["hour"]      = bikes[dt_col].dt.hour
 bikes['dayOfWeek'] = bikes[dt_col].dt.dayofweek
 bikes['month']     = bikes[dt_col].dt.month
 bikes['year']      = bikes[dt_col].dt.year
+bikes['time']      = bikes[dt_col].dt.year+bikes[dt_col].dt.month+bikes[dt_col].dt.dayofweek+bikes[dt_col].dt.hour
 
 # Names and renaming
 target_name = "totalRides"
@@ -70,7 +72,7 @@ plt.show()
 
 #%% SCALED DATA
 sc=StandardScaler() 
-bikes_float = bikes.drop(dt_col, axis=1)
+bikes_float = bikes.drop([dt_col, target_name], axis=1)
 sc.fit(bikes_float.to_numpy())
 bikes_scaled =sc.transform(bikes_float.to_numpy())
     
@@ -111,13 +113,16 @@ for pca_component in range(n_components):
 
 #%% Distribution PCA 3 with 2 distributions
 # Divide data for distribution with >1 frequency
-split_threshold = 1
-pca_3a = bikes_pca['pca_3'][bikes_pca['pca_3']<split_threshold]
-pca_3b = bikes_pca['pca_3'][bikes_pca['pca_3']>=split_threshold]
+split_threshold = 0.9
+pca_a = bikes_pca['pca_1'][bikes_pca['pca_1']<split_threshold]
+pca_b = bikes_pca['pca_1'][bikes_pca['pca_1']>=split_threshold]
 
-pca_3a_dist = fit_scipy_distributions(pca_3a, 100, dist_names)
-pca_3b_dist = fit_scipy_distributions(pca_3b, 100, dist_names)
-both_dist_pca3 =pd.concat([pca_3a_dist.iloc[:1],pca_3b_dist.iloc[:1]]) 
+pca_a_dist = fit_scipy_distributions(pca_a, 100, dist_names)
+pca_b_dist = fit_scipy_distributions(pca_b, 100, dist_names)
+both_dist_pca =pd.concat([pca_a_dist.iloc[:1],pca_b_dist.iloc[:1]]) 
 
-plot_distributions(bikes_pca['pca_3'],both_dist_pca3,100)
+plot_distributions(bikes_pca['pca_1'],both_dist_pca,100)
 
+
+
+# %%
