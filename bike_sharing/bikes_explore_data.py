@@ -8,10 +8,10 @@ from util import print2
 from util import ascendingCorrelation
 from scipy import stats
 import statsmodels.api as sm
-from AnalyzeDistributions import evaluate_distributions, evaluate_and_plot_dist
-from scipyDist import fit_scipy_distributions
+from scipyDist import fit_scipy_distributions, plot_distributions
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from scipy.stats._continuous_distns import _distn_names
 
 
 plt.style.use('seaborn')
@@ -62,25 +62,14 @@ plt.show()
 ax = sns.pairplot(bikes[corr_var_names[:6]])
 plt.show()
 
-# # Distribution analysis
-# ax = plt.subplots()
-# ax = sns.distplot(bikes[target_name]);
-# plt.show()
-
-# ax = plt.subplot()
-# ax = sns.distplot(bikes['temp'])
-# plt.show()
-
 #%% SCALED DATA
 sc=StandardScaler() 
 bikes_float = bikes.drop(dt_col, axis=1)
 sc.fit(bikes_float.to_numpy())
 bikes_scaled =sc.transform(bikes_float.to_numpy())
-# y_std = y_std.flatten()
-# size = len(yy)
     
 #%% PRINCIAL COMPONENT ANALYSIS
-n_components = 2
+n_components = 3
 pca = PCA(n_components=n_components)
 pca.fit(bikes_scaled)
 col_names =[]
@@ -93,47 +82,32 @@ ax = sns.pairplot(bikes_pca)
 plt.show()
 
 #%% DISTRIBUTION ANALYSIS
-short_list_dist_names = ['alpha', 'cauchy', 'cosine', 'laplace', 'levy','levy_l','norm']
-medium_list_dist_names = ['levy','levy_l','norm', 'laplace', 'ksone', 'kstwobign', 'norm', 'alpha', 'anglit','beta', 'betaprime', 'bradford', 'burr', 'burr12', 'fisk', 'cauchy', 'chi', 'chi2', 'cosine', 'dgamma', 'dweibull']
+short_list_dist_names = ['alpha', 'beta','cauchy', 'cosine', 'laplace', 'levy','levy_l','norm','burr','chi']
+medium_list_dist_names = ['levy','levy_l','norm', 'laplace', 'ksone', 'kstwobign', 'alpha', 'anglit','beta', 'betaprime', 'bradford', 'burr', 'burr12', 'fisk', 'cauchy', 'chi', 'chi2', 'cosine', 'dgamma', 'dweibull']
+long_list_dist_names = _distn_names
+# Change assignment as wished
+dist_names = short_list_dist_names 
 
-# Change assignment to determine distributions to be analized
-dist_names = medium_list_dist_names 
-
-# Get the top distributions from the previous phase
 number_distributions_to_plot = 3
    
-# Calculate Distributions
+# Calculate Distributions    
 target_dist = fit_scipy_distributions(bikes[target_name], 100, dist_names)
-best_temp_dist = target_dist['Distribution'].iloc[0:number_distributions_to_plot]
-# Plot distributions
-fit_scipy_distributions(bikes[target_name], 100, best_temp_dist,  plot_dist=True)
+plot_distributions(bikes[target_name],target_dist[:number_distributions_to_plot],100)
 
-# Distribution analysis for pca 1 
-temp_dist = fit_scipy_distributions(bikes_pca['pca_1'], 100, dist_names)
-best_temp_dist = temp_dist['Distribution'].iloc[0:number_distributions_to_plot]
-fit_scipy_distributions(bikes_pca['pca_1'], 100, best_temp_dist, plot_dist=True)
+# Distribution analysis for pca components
+for pca_component in range(n_components):
+    pca_dist = fit_scipy_distributions(bikes_pca['pca_'+str(pca_component+1)], 100, dist_names)
+    plot_distributions(bikes_pca['pca_'+str(pca_component+1)],pca_dist[:number_distributions_to_plot],100)
 
-# Distribution analysis for pca 2
-temp_dist = fit_scipy_distributions(bikes_pca['pca_2'], 100, dist_names)
-best_temp_dist = temp_dist['Distribution'].iloc[0:number_distributions_to_plot]
-fit_scipy_distributions(bikes_pca['pca_2'], 100, best_temp_dist,  plot_dist=True)
+#%% PCA 3 with 2 distributions
+# Divide data for distribution with >1 frequency
+split_threshold = 1
+pca_3a = bikes_pca['pca_3'][bikes_pca['pca_3']<split_threshold]
+pca_3b = bikes_pca['pca_3'][bikes_pca['pca_3']>=split_threshold]
 
-#%% D
-# ax = plt.subplot()
-# parameters = evaluate_and_plot_dist(bikes["temp"], dist_names, bins=30)
-# plt.show()
+pca_3a_dist = fit_scipy_distributions(pca_3a, 100, dist_names)
+pca_3b_dist = fit_scipy_distributions(pca_3b, 100, dist_names)
+both_dist_pca3 =pd.concat([pca_3a_dist.iloc[:1],pca_3b_dist.iloc[:1]]) 
 
-# # Store distribution paraemters in a dataframe
-# dist_parameters = pd.DataFrame()
-# dist_parameters['Distribution'] = (
-#         dist_results['Distribution'].iloc[0:number_distributions_to_plot])
-# dist_parameters['Distribution parameters'] = parameters
-
-# # Print parameter results
-# print ('\nDistribution parameters:')
-# print ('------------------------')
-
-# for index, row in dist_parameters.iterrows():
-#     print ('\nDistribution:', row[0])
-#     print ('Parameters:', row[1] )
+plot_distributions(bikes_pca['pca_3'],both_dist_pca3,100)
 
