@@ -5,7 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 from util import print2
-from util import ascendingCorrelation
+from util import ascendingCorrelation, plot_pca_with_hue
 from scipy import stats
 import statsmodels.api as sm
 from scipyDist import fit_scipy_distributions, plot_distributions
@@ -31,6 +31,12 @@ bikes['year']      = bikes[dt_col].dt.year
 target_name = "totalRides"
 target_related_names = ["registered","casual"] 
 bikes = bikes.rename(columns={"count": target_name})
+
+# Delete data that will not be available in test data
+for target_related_name in target_related_names:
+    if target_related_name in bikes.columns:
+        bikes.drop(target_related_name, axis=1, inplace=True)
+        
 
 # General Info
 print2(bikes.head(),10,10)
@@ -59,7 +65,7 @@ for item in ax.get_xticklabels():
 plt.show()
 
 # Pair plots
-ax = sns.pairplot(bikes[corr_var_names[:6]])
+ax = sns.pairplot(bikes[corr_var_names[:4]])
 plt.show()
 
 #%% SCALED DATA
@@ -75,11 +81,15 @@ pca.fit(bikes_scaled)
 col_names =[]
 for i in range(n_components):
     col_names.append("pca_"+str(i+1))
-    
 bikes_pca = pd.DataFrame(data = pca.transform(bikes_scaled), columns=col_names)
 
-ax = sns.pairplot(bikes_pca)
-plt.show()
+plot_pca_with_hue(bikes_pca,hue=bikes[target_name])
+plot_pca_with_hue(bikes_pca,hue=bikes['hour'], rot=.4)
+plot_pca_with_hue(bikes_pca,hue=bikes['temp'], rot=-.4)
+
+# Taking too much time
+# ax = sns.pairplot(bikes_pca)
+# plt.show()
 
 #%% DISTRIBUTION ANALYSIS
 short_list_dist_names = ['alpha', 'beta','cauchy', 'cosine', 'laplace', 'levy','levy_l','norm','burr','chi']
@@ -99,7 +109,7 @@ for pca_component in range(n_components):
     pca_dist = fit_scipy_distributions(bikes_pca['pca_'+str(pca_component+1)], 100, dist_names)
     plot_distributions(bikes_pca['pca_'+str(pca_component+1)],pca_dist[:number_distributions_to_plot],100)
 
-#%% PCA 3 with 2 distributions
+#%% Distribution PCA 3 with 2 distributions
 # Divide data for distribution with >1 frequency
 split_threshold = 1
 pca_3a = bikes_pca['pca_3'][bikes_pca['pca_3']<split_threshold]

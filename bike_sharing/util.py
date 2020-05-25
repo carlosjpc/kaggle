@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from zlib import crc32
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def print2(df, colWidth=10, numCols = None, display_width=400):  
     setPdDisplayOptions(len(df), colWidth, numCols, display_width)
@@ -66,4 +68,20 @@ def display_scores(scores):
     print("Scores:", scores)
     print("Mean:", scores.mean())
     print("Standard deviation:", scores.std())
+    
+def plot_pca_with_hue(pca_data, hue, rot=0):
+    palette=sns.cubehelix_palette(dark=.3, light=.8, as_cmap=True, rot=rot)
+    ax = plt.subplots()
+    ax = sns.scatterplot(x=pca_data.iloc[:,0], y=pca_data.iloc[:,1], hue=hue, data=pca_data, palette=palette)
+    ax.set_xlabel('pca 1')
+    ax.set_ylabel('pca 2')
+    if len(pca_data.columns) == 3:
+        ax = plt.subplots()
+        ax = sns.scatterplot(x=pca_data.iloc[:,1], y=pca_data.iloc[:,2], hue=hue, data=pca_data, palette=palette)
+        ax.set_xlabel('pca 2')
+        ax.set_ylabel('pca 3')
+        ax = plt.subplots()
+        ax = sns.scatterplot(x=pca_data.iloc[:,0], y=pca_data.iloc[:,2], hue=hue, data=pca_data, palette=palette)
+        ax.set_xlabel('pca 1')
+        ax.set_ylabel('pca 3')
     
