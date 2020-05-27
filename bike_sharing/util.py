@@ -84,4 +84,10 @@ def plot_pca_with_hue(pca_data, hue, rot=0):
         ax = sns.scatterplot(x=pca_data.iloc[:,0], y=pca_data.iloc[:,2], hue=hue, data=pca_data, palette=palette, alpha=0.5)
         ax.set_xlabel('pca 1')
         ax.set_ylabel('pca 3')
+
+def pca_col_names(n_cols):
+    col_names =[]
+    for i in range(n_cols):
+        col_names.append("pca_"+str(i+1))
+    return col_names
     

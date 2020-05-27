@@ -5,7 +5,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-from util import print2
+from util import print2, pca_col_names
 from util import ascendingCorrelation, plot_pca_with_hue
 from scipy import stats
 import statsmodels.api as sm
@@ -13,7 +13,10 @@ from scipyDist import fit_scipy_distributions, plot_distributions
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy.stats._continuous_distns import _distn_names
-
+from sklearn.manifold import MDS
+from sklearn.manifold import Isomap
+from sklearn.manifold import TSNE
+import time
 
 plt.style.use('seaborn')
 DISPLAY_WIDTH = 400
@@ -80,14 +83,24 @@ bikes_scaled =sc.transform(bikes_float.to_numpy())
 n_components = 3
 pca = PCA(n_components=n_components)
 pca.fit(bikes_scaled)
-col_names =[]
-for i in range(n_components):
-    col_names.append("pca_"+str(i+1))
-bikes_pca = pd.DataFrame(data = pca.transform(bikes_scaled), columns=col_names)
+bikes_pca = pd.DataFrame(data=pca.transform(bikes_scaled), 
+                         columns=pca_col_names(n_components))
 
 plot_pca_with_hue(bikes_pca,hue=bikes[target_name])
 plot_pca_with_hue(bikes_pca,hue=bikes['hour'], rot=.4)
 plot_pca_with_hue(bikes_pca,hue=bikes['temp'], rot=-.4)
+
+bikes_pca = pd.DataFrame(data = pca.transform(bikes_scaled), columns=col_names)
+
+##% 
+# print('Starting TSNE fit 3 components')
+# tsne3 = TSNE(n_components=3, verbose=1)
+# t1 = time.time()
+# tsne3_data = tsne.fit_transform(bikes_scaled)
+# t2 = time.time()
+# bikes_tsne3 = pd.DataFrame(data = tsne3_data, columns=pca_col_names(3))
+# print("Training took {:.2f}s".format(t1 - t0))
+# plot_pca_with_hue(bikes_tsne3,hue=bikes[target_name])
 
 # Taking too much time
 # ax = sns.pairplot(bikes_pca)

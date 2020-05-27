@@ -4,7 +4,15 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import joblib
 
+
 # Function that should be imported when dealing with new data
+def bikes_full_pipeline(data):
+    dt_col = "datetime"
+    target_name = "totalRides"
+    target_rel_names = ["registered","casual"] 
+    data_prepared, data_modified = bikes_pipeline(data, dt_col, target_name, target_rel_names)
+    return data_prepared, data_modified
+
 def bikes_pipeline(data, dt_col, target_name, target_rel_names):
     data = modify_features(data, dt_col, target_name, target_rel_names)
     data_num, data_cat, data_dt = create_bikes_num_and_cat(data, dt_col)
@@ -58,11 +66,9 @@ def del_from_list(list_, unwanted_elements):
 
 
 if __name__ == '__main__':
-    bikes = pd.read_csv('dataset/train.csv', parse_dates = ['datetime'])
-    dt_col = "datetime"
     target_name = "totalRides"
-    target_related_names = ["registered","casual"] 
-    data_prepared, data_modified = bikes_pipeline(bikes, dt_col, target_name, target_related_names)
+    bikes = pd.read_csv('dataset/train.csv', parse_dates = ['datetime'])
+    data_prepared, data_modified = bikes_full_pipeline(bikes)
     X_train, X_test, y_train, y_test = train_test_split(data_prepared.drop(target_name,axis=1),
                                                         data_prepared[target_name], 
                                                         test_size=0.2, random_state=42)
