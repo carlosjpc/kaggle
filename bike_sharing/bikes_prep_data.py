@@ -69,13 +69,14 @@ if __name__ == '__main__':
     target_name = "totalRides"
     bikes = pd.read_csv('dataset/train.csv', parse_dates = ['datetime'])
     data_prepared, data_modified = bikes_full_pipeline(bikes)
+    
+    # Should a time series be randomly splitted ? 
     X_train, X_test, y_train, y_test = train_test_split(data_prepared.drop(target_name,axis=1),
                                                         data_prepared[target_name], 
                                                         test_size=0.2, random_state=42)
     
+    XY = (X_train, X_test, y_train, y_test)
     joblib.dump(data_prepared, "dataset/data_prepared.pkl")
-    joblib.dump(X_train, "dataset/X_train.pkl")
-    joblib.dump(X_test, "dataset/X_test.pkl")
-    joblib.dump(y_train, "dataset/X_train.pkl")
-    joblib.dump(y_test, "dataset/X_test.pkl")
+    joblib.dump(XY, "dataset/XY.pkl")
+
     

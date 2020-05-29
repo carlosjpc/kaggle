@@ -1,53 +1,11 @@
-from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
-from sklearn.metrics import mean_squared_error
 from util import display_scores
-from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import OneHotEncoder
+import pandas as pd
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import accuracy_score
 
-rooms_ix, bedrooms_ix, population_ix, households_ix = 3, 4, 5, 6
-
-class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
-    def __init__(self, add_bedrooms_per_room = True): # no *args or **kargs
-        self.add_bedrooms_per_room = add_bedrooms_per_room
-    def fit(self, X, y=None):
-        return self  # nothing else to do
-    def transform(self, X):
-        rooms_per_household = X[:, rooms_ix] / X[:, households_ix]
-        population_per_household = X[:, population_ix] / X[:, households_ix]
-        if self.add_bedrooms_per_room:
-            bedrooms_per_room = X[:, bedrooms_ix] / X[:, rooms_ix]
-            return np.c_[X, rooms_per_household, population_per_household,
-                         bedrooms_per_room]
-
-        else:
-            return np.c_[X, rooms_per_household, population_per_household]
-
-class DeleteAttributes(BaseEstimator, TransformerMixin):
-    def __init__(self, cols_ix = []): # no *args or **kargs
-        self.cols_ix = cols_ix
-    def fit(self, X, y=None):
-        return self  # nothing else to do
-    def transform(self, X):
-        print(type(X))
-        for col_ix in self.cols_ix:
-            print(col_ix)
-        return X
-    
-class EncoderAndDeleteCol(BaseEstimator, TransformerMixin):
-    def __init__(self, cols_ix = []):
-        self.cols_ix = cols_ix
-        self.cols_ix.sort(reverse=True)
-        
-    def transform(self, X):
-        ohe = OneHotEncoder()
-        ohe.fit_transform(X)
-        self.categories_ = ohe.categories_
-        self.categories_[0] = np.delete(self.categories_[0],self.cols_ix)
-        return np.delete(ohe.fit_transform(X).toarray(),self.cols_ix,1)
-        
-    def fit(self, X, y=None, **fit_params):
-        return self
   
 def trainAndPrint(model, X, y, name):
     model.fit(X, y)
@@ -59,12 +17,6 @@ def trainAndPrint(model, X, y, name):
     print(name, " RMSE: ", "{:.2f}".format(model.score(X,y)))
     return model
 
-def cross_val_scoresAndPrint(model, X, y, scoring="neg_mean_squared_error", cv=10):
-    scores = cross_val_score(model, X, y, scoring="neg_mean_squared_error", cv=10)
-    rmse_scores = np.sqrt(-scores)
-    display_scores(rmse_scores)
-    return scores
-
 def testAndPrint(model, X, y, name):
     y_predictions = model.predict(X)
     mse = mean_squared_error(y, y_predictions)
@@ -73,5 +25,46 @@ def testAndPrint(model, X, y, name):
     print(name," MSE: ","{:.2f}".format(rmse))
     print(name, " RMSE: ", "{:.2f}".format(model.score(X,y)))
     return y_predictions
+
+def grid_search(model, param_grid, X, y, cv=3, verbose=2):
+    grid_search = GridSearchCV(model, param_grid=param_grid, cv=cv,
+                               scoring='neg_mean_squared_error',
+                               return_train_score=True, verbose=verbose)
+    grid_search.fit(X, y)
+    gs_res = compile_results_search(grid_search)
+    
+    return grid_search, gs_res
+
+def random_search(model, param_distributions, X, y, n_iter=10, cv=3, verbose=2):
+    random_search = RandomizedSearchCV(model, param_distributions=param_distributions, n_iter=n_iter, cv=cv,
+                               scoring='neg_mean_squared_error',
+                               return_train_score=True, verbose=verbose)
+    random_search.fit(X, y)
+    random_res = compile_results_search(random_search)
+    
+    return random_search, random_res
+
+def compile_results_search(search):
+    cvres = search.cv_results_
+    search_res = pd.DataFrame(zip(-cvres["mean_test_score"], cvres["params"]),
+                 columns=['mean_test_score','params'])
+    search_res.sort_values('mean_test_score', inplace=True, ascending=True)
+    return search_res
+
+def test_model(model, X, y):
+    y_predictions = model.predict(X)
+    mse = mean_squared_error(y, y_predictions)
+    rmse = np.sqrt(mse)
+    return y_predictions, rmse
+
+
+def rmse_from_predictions(model, X, y, name=""):
+    y_predictions = model.predict(X)
+    mse = mean_squared_error(y, y_predictions)
+    rmse = np.sqrt(mse)
+    print("")
+    print(name,"RMSE : ","{:.2f}".format(rmse))
+    print(name, "SCORE: ", "{:.2f}".format(model.score(X,y)))
+    return rmse, y_predictions
 
 
