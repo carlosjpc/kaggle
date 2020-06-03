@@ -15,11 +15,11 @@ def bikes_full_pipeline(data):
 
 def bikes_pipeline(data, dt_col, target_name, target_rel_names):
     data = modify_features(data, dt_col, target_name, target_rel_names)
-    data_num, data_cat, data_dt = create_bikes_num_and_cat(data, dt_col)
+    data_num, data_cat, data_target = create_bikes_num_cat_target(data, dt_col, target_name)
     data_num_scaled = scale_data(data_num)
     data_cat_dummies = pd.get_dummies(data_cat.astype(str), drop_first=True)
-    data_modified = pd.concat([data_num,data_cat_dummies], axis=1)
-    data_prepared = pd.concat([data_num_scaled,data_cat_dummies], axis=1)
+    data_modified = pd.concat([data_num,data_cat_dummies,data_target], axis=1)
+    data_prepared = pd.concat([data_num_scaled,data_cat_dummies,data_target], axis=1)
     return data_prepared, data_modified
 
 def scale_data(data):
@@ -44,13 +44,14 @@ def add_datetime_columns(data,dt_col):
         data['time']      = data[dt_col].dt.year+bikes[dt_col].dt.month+bikes[dt_col].dt.dayofweek+bikes[dt_col].dt.hour
     return data
         
-def create_bikes_num_and_cat(data, dt_col):
-    data_dt = data[dt_col]
+def create_bikes_num_cat_target(data, dt_col, target_name):
+    data_target = data[target_name]
     cat_features = ['weather','season','holiday','workingday'] #year, hour??
     num_features = del_from_list(list(data.columns),cat_features)
     num_features.remove(dt_col)
+    num_features.remove(target_name)
     data_num , data_cat = (data[num_features] , data[cat_features])
-    return data_num, data_cat, data_dt
+    return data_num, data_cat, data_target
 
 def delete_features(data , features_to_delete):
     for feature_to_delete in features_to_delete:

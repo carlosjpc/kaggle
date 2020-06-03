@@ -6,9 +6,11 @@ import matplotlib.pyplot as plt
 import time
 import joblib
 
+from scipy.stats import uniform, reciprocal, probplot
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.metrics import accuracy_score
 
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import SGDRegressor
@@ -51,11 +53,11 @@ def create_results_train(estimators,times,scores):
 def cross_validation(estimators, cv=5):
     result = []
     for estimator in estimators:
-        scores = cross_val_score(estimator, X_train, y_train, cv=cv) #scoring="neg_mean_squared_error"
-        rmse_scores = (scores).mean() #np.sqrt
+        scores = cross_val_score(estimator, X_train, y_train, cv=cv, scoring="neg_mean_squared_error")
+        rmse_scores = (-scores).mean() #np.sqrt
         result.append(rmse_scores)
     df = pd.DataFrame(data=result, index=list(map(estimator_name,estimators)), columns=['mean_error'])
-    return df.sort_values(by=['mean_error'], axis=0, ascending=False)
+    return df.sort_values(by=['mean_error'], axis=0, ascending=True)
 
 def grid_search(model, param_grid, X, y, cv=3, verbose=2):
     grid_search = GridSearchCV(model, param_grid=param_grid, cv=cv,
@@ -81,6 +83,18 @@ def compile_results_search(search):
     search_res.sort_values('mean_test_score', inplace=True, ascending=True)
     return search_res
 
+def test_mse(model, X_test, y_test):
+    y_pred = model.predict(X_test)
+    print("\n {} MSE: {:.4f}".format(estimator_name(model),mean_squared_error(y_pred, y_test)))
+    return mean_squared_error(y_pred, y_test)
+
+def feature_importances(model):
+    print(estimator_name(model))
+    feat_imp = pd.DataFrame(data=random_forest_best.feature_importances_,
+                                   index=X_train.columns, columns=['importance'])
+    feat_imp.sort_values(by='importance', inplace=True,ascending=False)
+    print(str(feat_imp)+'\n')
+    return feat_imp
 #%%
 X_train, X_test, y_train, y_test = joblib.load("dataset/XY.pkl")
 
@@ -101,24 +115,99 @@ gbr = GradientBoostingRegressor()
 #%%
 estimators = [decision_tree, random_forest, extra_trees, svr, sgd, lin_reg, gbr]
 estimators_trained, train_results = train_estimators(estimators)
-print('MODELS SCORES \n' +str(train_results))
+print('\n MODELS SCORES \n' +str(train_results))
 
 #%%
 cross_results = cross_validation(estimators,cv=5)
-print('CROSS VALIDATION SCORES \n' +str(cross_results))
+print('\n CROSS VALIDATION SCORES \n' +str(cross_results))
+
+#%% RANDOM SEARCH 
+param_grid = {
+    "n_estimators": np.arange(100,500),
+    'max_features': ['auto', 10,12,14,16,17],
+    "min_samples_split": np.arange(2,10),
+    "max_depth": [None,15,20,25,30,35,40,50],
+}
+rfg_rs, rfg_rs_res = random_search(RandomForestRegressor(),param_grid,X_train,y_train, cv=2, n_iter=100, verbose=2)
+print(rfg_rs_res)
 
 #%%
-param_grid = [
-    {'n_estimators': [300, 500], 'max_features': ['auto',15, 17]},
-  ]
+param_grid = {
+    "n_estimators": np.arange(100,500),
+    'max_features': ['auto', 10,12,14,16,17],
+    "min_samples_split": np.arange(2,10),
+    "max_depth": [None,15,20,25,30,35,40,50],
+}
+etr_rs, etr_rs_res = random_search(ExtraTreesRegressor(),param_grid,X_train,y_train, cv=2, n_iter=100, verbose=2)
+print(etr_rs_res)
 
+#%%
+param_grid = {
+    'max_features': ['auto', 10,12,14,16,17],
+    "min_samples_split": np.arange(2,10),
+    "max_depth": [None,15,20,25,30,35,40,50],
+}
+dtr_rs, dtr_rs_res = random_search(DecisionTreeRegressor(),param_grid,X_train,y_train, cv=2, n_iter=100, verbose=2)
+print(dtr_rs_res)
+
+#%% GRID SEARCH
+param_grid = [
+    {'n_estimators': [300, 350, 400], 'max_features': [14, 15, 16, 17], "max_depth": [25,30,35]},
+  ]
 rfg_gs, rfg_gs_res = grid_search(RandomForestRegressor(),param_grid,X_train,y_train, verbose=1)
 print(rfg_gs_res)
 
-#%%
-random_forest_best = RandomForestRegressor(max_features=15, n_estimators=300)
-random_forest_best.fit(X_train,y_train)
+#%% 
+param_grid = [
+    {'max_features': ['auto',14,15,16,17], "max_depth": [None,15,25,30,35,40,50]},
+  ]
+drt_gs, drt_gs_res = grid_search(DecisionTreeRegressor(),param_grid,X_train,y_train, verbose=1)
+print(drt_gs_res)
 
 #%%
-print("{} score: {:.2f}".format(estimator_name(random_forest_best),random_forest_best.score(X_test, y_test)))
-# er = VotingRegressor([('lr', r1), ('rf', r2)])
+param_grid = [
+    {'n_estimators': [300, 350, 400], 'max_features': ['auto', 17], "max_depth": [25,30,35, 40]},
+  ]
+etr_gs, etr_gs_res = grid_search(ExtraTreesRegressor(),param_grid,X_train,y_train, verbose=1)
+print(etr_gs_res)
+
+#%% BEST MODELS
+#%% RandomForestRegressor
+random_forest_best = RandomForestRegressor(max_features=15, n_estimators=300)
+random_forest_best.fit(X_train,y_train)
+joblib.dump(random_forest_best, "models/random_forest_best.pkl")
+
+#%% DecisionTreeRegressor
+decision_tree_best = DecisionTreeRegressor(max_depth=15, max_features=16)
+decision_tree_best.fit(X_train,y_train)
+joblib.dump(decision_tree_best, "models/decision_tree_best.pkl")
+
+#%% ExtraTreesRegressor
+extra_forest_best = ExtraTreesRegressor(max_features=17, max_depth=25, n_estimators=350)
+extra_forest_best.fit(X_train,y_train)
+joblib.dump(extra_forest_best, "models/extra_forest_best.pkl")
+
+#%% FEATURES
+feature_importances_rfr = feature_importances(random_forest_best)
+feature_importances_dtr = feature_importances(decision_tree_best)
+feature_importances_etr = feature_importances(extra_forest_best)
+
+#%% TEST
+test_mse(random_forest_best, X_test, y_test)
+test_mse(decision_tree_best, X_test, y_test)
+test_mse(extra_forest_best, X_test, y_test)
+
+#%% ENSEMBLE
+Voter = VotingRegressor([('rfr', random_forest_best), 
+                         ('etr',extra_forest_best)])
+
+Voter.fit(X_train,y_train)
+test_mse(Voter,X_test, y_test)
+joblib.dump(extra_forest_best, "models/forest_voter.pkl")
+
+#%%
+y_pred = Voter.predict(X_test)
+sub = y_pred-y_test
+perc=abs(sub)/y_test*100
+print("\nError from prediction: {:.1f} %".format(perc.mean()))
+

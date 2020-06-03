@@ -1,1 +1,3 @@
 bike_sharing/__pycache__
+bike_sharing/models
+bike_sharing/tests
