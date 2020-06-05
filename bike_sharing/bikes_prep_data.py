@@ -10,17 +10,17 @@ def bikes_full_pipeline(data):
     dt_col = "datetime"
     target_name = "totalRides"
     target_rel_names = ["registered","casual"] 
-    data_prepared, data_modified = bikes_pipeline(data, dt_col, target_name, target_rel_names)
-    return data_prepared, data_modified
+    data_scaled, data_prepared = bikes_pipeline(data, dt_col, target_name, target_rel_names)
+    return data_scaled, data_prepared
 
 def bikes_pipeline(data, dt_col, target_name, target_rel_names):
     data = modify_features(data, dt_col, target_name, target_rel_names)
     data_num, data_cat, data_target = create_bikes_num_cat_target(data, dt_col, target_name)
     data_num_scaled = scale_data(data_num)
     data_cat_dummies = pd.get_dummies(data_cat.astype(str), drop_first=True)
-    data_modified = pd.concat([data_num,data_cat_dummies,data_target], axis=1)
-    data_prepared = pd.concat([data_num_scaled,data_cat_dummies,data_target], axis=1)
-    return data_prepared, data_modified
+    data_prepared = pd.concat([data_num,data_cat_dummies,data_target], axis=1)
+    data_scaled = pd.concat([data_num_scaled,data_cat_dummies,data_target], axis=1)
+    return data_scaled, data_prepared
 
 def scale_data(data):
     sc=StandardScaler() 
@@ -69,15 +69,21 @@ def del_from_list(list_, unwanted_elements):
 if __name__ == '__main__':
     target_name = "totalRides"
     bikes = pd.read_csv('dataset/train.csv', parse_dates = ['datetime'])
-    data_prepared, data_modified = bikes_full_pipeline(bikes)
+    data_scaled, data_prepared = bikes_full_pipeline(bikes)
     
     # Should a time series be randomly splitted ? 
-    X_train, X_test, y_train, y_test = train_test_split(data_prepared.drop(target_name,axis=1),
-                                                        data_prepared[target_name], 
-                                                        test_size=0.2, random_state=42)
+    X=data_scaled.drop(target_name,axis=1)
+    y=data_scaled[target_name]
     
-    XY = (X_train, X_test, y_train, y_test)
-    joblib.dump(data_prepared, "dataset/data_prepared.pkl")
+    X_train_full, X_test, y_train_full, y_test = train_test_split(X, y, 
+                                                        test_size=0.15, random_state=42)
+    val_size = len(X_train_full) // 7
+    
+    X_valid, X_train = X_train_full[:val_size] , X_train_full[val_size:]
+    y_valid, y_train = y_train_full[:val_size], y_train_full[val_size:]
+    
+    XY = (X_train, X_test, y_train, y_test, X_valid, y_valid)
+    joblib.dump(data_scaled, "dataset/data_scaled.pkl")
     joblib.dump(XY, "dataset/XY.pkl")
 
     

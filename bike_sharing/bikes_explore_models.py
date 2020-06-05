@@ -1,4 +1,3 @@
-#%% IMPORTS
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -22,6 +21,8 @@ from sklearn.ensemble import VotingRegressor
 from sklearn.ensemble import AdaBoostRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 
+np.random.seed(42)
+tf.random.set_seed(42)
 #%%
 def estimator_name(estimator):
     return estimator.__class__.__name__
@@ -85,7 +86,9 @@ def compile_results_search(search):
 
 def test_mse(model, X_test, y_test):
     y_pred = model.predict(X_test)
-    print("\n {} MSE: {:.4f}".format(estimator_name(model),mean_squared_error(y_pred, y_test)))
+    sub = y_pred-y_test
+    perc=abs(sub)/y_test*100
+    print("\n {} MSE: {:.4f} ~= {:.1f}%".format(estimator_name(model),mean_squared_error(y_pred, y_test),perc.mean()))
     return mean_squared_error(y_pred, y_test)
 
 def feature_importances(model):
@@ -96,8 +99,7 @@ def feature_importances(model):
     print(str(feat_imp)+'\n')
     return feat_imp
 #%%
-X_train, X_test, y_train, y_test = joblib.load("dataset/XY.pkl")
-
+X_train, X_test, y_train, y_test, X_valid, y_valid = joblib.load("dataset/XY.pkl")
 #%% PLAIN MODELS
 verbose = 0
 random_state = 42
@@ -205,9 +207,4 @@ Voter.fit(X_train,y_train)
 test_mse(Voter,X_test, y_test)
 joblib.dump(extra_forest_best, "models/forest_voter.pkl")
 
-#%%
-y_pred = Voter.predict(X_test)
-sub = y_pred-y_test
-perc=abs(sub)/y_test*100
-print("\nError from prediction: {:.1f} %".format(perc.mean()))
 
