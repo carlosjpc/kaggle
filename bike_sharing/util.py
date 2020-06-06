@@ -3,6 +3,17 @@ import numpy as np
 from zlib import crc32
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
+import joblib
+from tensorflow import keras
+from sklearn.metrics import mean_squared_error
+from enum import Enum
+
+class DatasetType(Enum):
+    PREP = 'prep'
+    SCALED = 'scaled'
+    PCA = 'pca'
+    SCALED21 = 'scaled21'
 
 def print2(df, colWidth=10, numCols = None, display_width=400):  
     setPdDisplayOptions(len(df), colWidth, numCols, display_width)
@@ -90,4 +101,81 @@ def pca_col_names(n_cols):
     for i in range(n_cols):
         col_names.append("pca_"+str(i+1))
     return col_names
-    
+
+def describe_Xy_data(X_train, y_train, X_test, y_test, X_valid=None,y_valid=None):
+    print('DATA DESCRIPTION')
+    print('features     : ' + str(X_train.shape[1]))
+    print('y range      : ' + str(min(y_train)) +' - ' + str(max(y_train)))
+    print('train samples: ' + str(X_train.shape[0]))
+    if X_valid.all() is not None:
+        print('valid samples: ' + str(X_valid.shape[0]))
+    print('test samples : ' + str(X_test.shape[0]))
+
+def reshape_array(var):
+    if type(var) is not np.ndarray:
+        var = var.to_numpy()    
+    return var.reshape(-1,1)
+
+def test_mse(model, X_test, y_test, name='Model',print_=True):
+    y_pred = reshape_array(model.predict(X_test))
+    y_test = reshape_array(y_test)
+    sub = y_pred-y_test
+    perc=abs(sub)/y_test*100
+    if print_:
+        print("\n{} MSE: {:.0f} ~= {:.1f}%".format(name,mean_squared_error(y_pred, y_test),perc.mean()))
+    return mean_squared_error(y_pred, y_test), perc.mean()
+            
+def return_list_Xy(folder):
+    Xy_files = []
+    for file in os.listdir(folder):
+        if "Xy" in file:
+            Xy_files.append(file.replace('.pkl',''))
+    return Xy_files
+
+def load_dataset(dataset_type,folder):
+    Xy_files = return_list_Xy(folder)
+    for file in Xy_files:
+        if dataset_type.name.lower() in file.replace('Xy_','').lower():
+            print(file + ' loaded\n-------')
+            return joblib.load(os.path.join(folder,file+'.pkl'))
+        
+def test_models(models_folder,data_folder):
+    mses = []
+    percs = []
+    names = []
+    result = pd.DataFrame()
+    Xy_files = return_list_Xy(data_folder)
+    for model_file in os.listdir(models_folder):
+        has_data = False
+        for Xy_file in Xy_files:
+            if Xy_file.replace('Xy_','') in model_file.lower():
+                data =  joblib.load(os.path.join(data_folder,Xy_file+'.pkl'))
+                X_test, y_test = (data[4], data[5])
+                has_data = True
+                break
+        if has_data:  
+            mse, perc = (0,0)
+            if model_file.endswith(".h5"):
+                model = keras.models.load_model(os.path.join(models_folder,model_file))
+                mse, perc = test_mse(model,X_test,y_test,model_file.replace(".h5",""), print_=False)                
+            if model_file.endswith(".pkl"):
+                model = joblib.load(os.path.join(models_folder,model_file))
+                mse, perc = test_mse(model,X_test,y_test,model_file.replace(".pkl",""), print_=False)
+            mses.append(mse)
+            percs.append(perc)
+            names.append(model_file)
+        else:
+            print('no data found for model: ' + model_file)
+    result['model'] = names
+    result['mse']   = mses
+    result['perc']  = percs
+    return result
+            
+if __name__ == '__main__':
+    skmodels = test_models(models_folder='SKmodels',data_folder='dataset')
+    tfmodels = test_models(models_folder='TFmodels',data_folder='dataset')
+
+    result_tests = pd.concat([skmodels,tfmodels])
+    result_tests.sort_values(by=['mse'],inplace=True)
+    print(result_tests)
+            

@@ -3,21 +3,21 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import joblib
-
+from sklearn.decomposition import PCA
 
 # Function that should be imported when dealing with new data
-def bikes_full_pipeline(data):
+def bikes_full_pipeline(data,drop_first=True):
     dt_col = "datetime"
     target_name = "totalRides"
     target_rel_names = ["registered","casual"] 
-    data_scaled, data_prepared = bikes_pipeline(data, dt_col, target_name, target_rel_names)
+    data_scaled, data_prepared = bikes_pipeline(data, dt_col, target_name, target_rel_names,drop_first)
     return data_scaled, data_prepared
 
-def bikes_pipeline(data, dt_col, target_name, target_rel_names):
+def bikes_pipeline(data, dt_col, target_name, target_rel_names, drop_first):
     data = modify_features(data, dt_col, target_name, target_rel_names)
     data_num, data_cat, data_target = create_bikes_num_cat_target(data, dt_col, target_name)
     data_num_scaled = scale_data(data_num)
-    data_cat_dummies = pd.get_dummies(data_cat.astype(str), drop_first=True)
+    data_cat_dummies = pd.get_dummies(data_cat.astype(str), drop_first=drop_first)
     data_prepared = pd.concat([data_num,data_cat_dummies,data_target], axis=1)
     data_scaled = pd.concat([data_num_scaled,data_cat_dummies,data_target], axis=1)
     return data_scaled, data_prepared
@@ -65,25 +65,48 @@ def del_from_list(list_, unwanted_elements):
             list_.remove(element)
     return list_
 
-
-if __name__ == '__main__':
-    target_name = "totalRides"
-    bikes = pd.read_csv('dataset/train.csv', parse_dates = ['datetime'])
-    data_scaled, data_prepared = bikes_full_pipeline(bikes)
-    
-    # Should a time series be randomly splitted ? 
-    X=data_scaled.drop(target_name,axis=1)
-    y=data_scaled[target_name]
-    
+def train_test_valid(X,y,test_size=.15,train_size=.15, random_state=42):
     X_train_full, X_test, y_train_full, y_test = train_test_split(X, y, 
-                                                        test_size=0.15, random_state=42)
-    val_size = len(X_train_full) // 7
+                                                        test_size=test_size, random_state=42)
+    val_size = int(len(X_train_full) * train_size)
     
     X_valid, X_train = X_train_full[:val_size] , X_train_full[val_size:]
     y_valid, y_train = y_train_full[:val_size], y_train_full[val_size:]
     
-    XY = (X_train, X_test, y_train, y_test, X_valid, y_valid)
-    joblib.dump(data_scaled, "dataset/data_scaled.pkl")
-    joblib.dump(XY, "dataset/XY.pkl")
+    return (X_train, y_train, X_test, y_test, X_valid, y_valid)
 
+        
+if __name__ == '__main__':
+    target_name = "totalRides"
+    bikes = pd.read_csv('dataset/train.csv', parse_dates = ['datetime'])
+    # Should a time series be randomly splitted ? 
+      
+    data_scaled, data_prepared = bikes_full_pipeline(bikes)
+    y=data_scaled[target_name]
+    
+    # SCALED
+    X = data_scaled.drop(target_name,axis=1)
+    Xy = train_test_valid(X, y)
+    joblib.dump(Xy, "dataset/Xy_scaled.pkl")
+    
+    # PREPARED
+    X = data_prepared.drop(target_name,axis=1)
+    Xy = train_test_valid(X, y)
+    joblib.dump(Xy, "dataset/Xy_prep.pkl")
+    
+    # SCALED without DROP
+    data_scaled, data_prepared = bikes_full_pipeline(bikes,drop_first=False)
+    y=data_scaled[target_name]
+    X = data_scaled.drop(target_name,axis=1)
+    
+    Xy = train_test_valid(X, y)
+    joblib.dump(Xy, "dataset/Xy_scaled21.pkl")
+    
+    # PCA
+    pca = PCA(.99)
+    X_pca = pca.fit_transform(X)
+    Xy = train_test_valid(X_pca, y)
+    joblib.dump(Xy, "dataset/Xy_pca.pkl")
+    
+    
     

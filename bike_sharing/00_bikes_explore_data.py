@@ -9,7 +9,7 @@ from util import print2, pca_col_names
 from util import ascendingCorrelation, plot_pca_with_hue
 from scipy import stats
 import statsmodels.api as sm
-from scipyDist import fit_scipy_distributions, plot_distributions
+from scipy_dist_fn import fit_scipy_distributions, plot_distributions
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy.stats._continuous_distns import _distn_names

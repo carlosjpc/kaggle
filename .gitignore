@@ -1,3 +1,4 @@
 bike_sharing/__pycache__
-bike_sharing/models
+bike_sharing/SKmodels
 bike_sharing/tests
+bike_sharing/my_logs
