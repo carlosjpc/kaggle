@@ -98,7 +98,7 @@ def run_network(name, data, optimizer, input_shape, dataset_type, activation='el
     model = build_model(n_layers,n_neurons,input_shape=input_shape, 
                         activation=activation, batch_norm=batch_norm, alpha_drop=alpha_drop)
     model.compile(loss=loss, optimizer=optimizer)
-    history = model.fit(X_train, y_train, epochs=epochs, validation_data=(X_valid, y_valid), callbacks=cb)
+    model.fit(X_train, y_train, epochs=epochs, validation_data=(X_valid, y_valid), callbacks=cb)
     test_mse(model,X_test,y_test,name)
     save_tfmodel_in_dir(model, name, dataset_type, save_folder)
     return model

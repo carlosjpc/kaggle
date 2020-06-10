@@ -25,7 +25,7 @@ np.random.seed(42)
 
 #%%
 MODELS_FOLDER = "SKmodels"
-DS_TYPE = DatasetType.PCA 
+DS_TYPE = DatasetType.SCALED 
 save_skmodel = partial(save_skmodel_in_dir,dataset_type=DS_TYPE,folder=MODELS_FOLDER)
 
 #%%
@@ -145,6 +145,10 @@ test_mse(Voter,X_test, y_test)
 save_skmodel(Voter, estimator_name(Voter))
 
 
+#%%
+test_mse(Voter,X_test, y_test)
+test_mse(extra_forest_best,X_test, y_test)
+test_mse(random_forest_best,X_test, y_test)
 
 
 

@@ -21,7 +21,7 @@ initializers = [name for name in dir(keras.initializers) if not name.startswith(
 activations = [m for m in dir(keras.activations) if not m.startswith("_")]
 
 #%%
-DS_TYPE = DatasetType.PCA 
+DS_TYPE = DatasetType.SCALED 
 
 all_data= load_dataset(DS_TYPE, folder='dataset')
 X_train, y_train, X_test, y_test, X_valid, y_valid = all_data

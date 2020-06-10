@@ -9,6 +9,7 @@ from tensorflow import keras
 from neural_nets_fn import find_learning_rate, callbacks_fn, plot_lr_vs_loss
 from neural_nets_fn import build_model
 from util import describe_Xy_data, test_mse
+from util import describe_Xy_data, DatasetType, load_dataset, test_mse
 
 np.random.seed(42)
 tf.random.set_seed(42)
@@ -37,11 +38,11 @@ LOSS = 'mean_squared_error'
 N_NEURONS = 30
 N_LAYERS = 3
 MODELS_FOLDER = "TFmodels"
-DS_TYPE = DatasetType.PREP 
+DS_TYPE = DatasetType.SCALED 
 
 #%%
-X_train, X_test, y_train, y_test, X_valid, y_valid = load_dataset(DS_TYPE, folder='dataset')
-describe_Xy_data(X_train, X_test, y_train, y_test, X_valid, y_valid)
+X_train, y_train, X_test, y_test, X_valid, y_valid = load_dataset(DS_TYPE, folder='dataset')
+describe_Xy_data(X_train, y_train, X_test, y_test, X_valid, y_valid)
 
 INPUT_SHAPE = X_train.shape[1:]
 

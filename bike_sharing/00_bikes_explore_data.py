@@ -90,7 +90,7 @@ plot_pca_with_hue(bikes_pca,hue=bikes[target_name])
 plot_pca_with_hue(bikes_pca,hue=bikes['hour'], rot=.4)
 plot_pca_with_hue(bikes_pca,hue=bikes['temp'], rot=-.4)
 
-bikes_pca = pd.DataFrame(data = pca.transform(bikes_scaled), columns=col_names)
+# bikes_pca = pd.DataFrame(data = pca.transform(bikes_scaled), columns=col_names)
 
 ##% 
 # print('Starting TSNE fit 3 components')
