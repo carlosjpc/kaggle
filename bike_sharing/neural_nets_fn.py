@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import time
 
 from sklearn.metrics import mean_squared_error
@@ -10,7 +11,7 @@ import tensorflow as tf
 from tensorflow import keras
 from keras.callbacks import TensorBoard
 
-from util import test_mse
+from util import test_rmsle
 
 np.random.seed(42)
 tf.random.set_seed(42)
@@ -29,7 +30,7 @@ def build_model(n_hidden=1, n_neurons=30, input_shape=[10],
     model = keras.models.Sequential()
     model.add(keras.layers.Dense(n_neurons, input_shape=input_shape))
     for layer in range(n_hidden):
-        model = add_batch_drop_layer(model, batch_norm, alpha_drop)
+        # model = add_batch_drop_layer(model, batch_norm, alpha_drop)
         model.add(keras.layers.Dense(n_neurons, activation=activation, kernel_initializer=initializer))
     model = add_batch_drop_layer(model, batch_norm, alpha_drop)
     model.add(keras.layers.Dense(output_shape, activation=output_activation))
@@ -73,6 +74,21 @@ def find_learning_rate(model, X, y, epochs=1, batch_size=32, min_rate=10**-5, ma
     model.set_weights(init_weights)
     return exp_lr.rates, exp_lr.losses
 
+def plot_learning_curves(history, name="Loss Comparison", nEpochs=100, maxLoss=None):
+    loss = history.history["loss"]
+    val_loss = history.history["val_loss"]
+    plt.plot(np.arange(len(loss)) + 0.5, loss, "b.-", label="Training loss")
+    plt.plot(np.arange(len(val_loss)) + 1, val_loss, "r.-", label="Validation loss")
+    plt.gca().xaxis.set_major_locator(mpl.ticker.MaxNLocator(integer=True))
+    if maxLoss is None:
+        maxLoss = np.max(loss)
+    plt.axis([0, nEpochs, 0, maxLoss])
+    plt.legend(fontsize=14)
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title(name)
+    plt.grid(True)
+
 def plot_lr_vs_loss(rates, losses):
     plt.plot(rates, losses)
     plt.gca().set_xscale('log')
@@ -81,32 +97,45 @@ def plot_lr_vs_loss(rates, losses):
     plt.xlabel("Learning rate")
     plt.ylabel("Loss")
 
-def callbacks_fn(name,patience=15, save_folder=''):
+def callbacks_fn(name,patience=15, save_folder='', useTensorboard=False):
     file_path =  save_folder+'/'+name+".h5"
     run_logdir          = get_run_logdir(name)
     checkpoint_save_cb  = keras.callbacks.ModelCheckpoint(file_path, save_best_only=True)
     early_stop_cb       = keras.callbacks.EarlyStopping(patience=patience)
     tensorboard_cb      = TensorBoard(run_logdir)
-    return [early_stop_cb, tensorboard_cb, checkpoint_save_cb]
+    if useTensorboard:
+        return [early_stop_cb, tensorboard_cb, checkpoint_save_cb]
+    return [early_stop_cb, checkpoint_save_cb]
+
+def get_train_test_valid(data):
+    if len(data) == 6:
+        X_train, y_train, X_test, y_test, X_valid, y_valid = data
+    if len(data) == 4:
+        X_train, y_train, X_test, y_test = data
+        X_valid, y_valid = (X_test, y_test)
+    return X_train, y_train, X_test, y_test, X_valid, y_valid
 
 def run_network(name, data, optimizer, input_shape, dataset_type, activation='elu', loss='mean_squared_error', n_neurons=4,
-                n_layers=1,epochs=10, save_folder='', with_cb=True, patience=15, batch_norm=False, alpha_drop=False):
-    X_train, y_train, X_test, y_test, X_valid, y_valid = data
+                n_layers=1,epochs=10, save_folder='', with_cb=True, patience=15, batch_norm=False, alpha_drop=False,maxLossPlot=1,nEpochsPlot=100,ylog_model=False):
+    X_train, y_train, X_test, y_test, X_valid, y_valid = get_train_test_valid(data)
+    if ylog_model:
+        y_valid = np.log1p(y_valid)
     name += '_' +str(n_layers) + '_' + str(n_neurons)
     cb = callbacks_fn(name, patience) if with_cb else []
     keras.backend.clear_session()
     model = build_model(n_layers,n_neurons,input_shape=input_shape, 
                         activation=activation, batch_norm=batch_norm, alpha_drop=alpha_drop)
     model.compile(loss=loss, optimizer=optimizer)
-    model.fit(X_train, y_train, epochs=epochs, validation_data=(X_valid, y_valid), callbacks=cb)
-    test_mse(model,X_test,y_test,name)
+    history = model.fit(X_train, y_train, epochs=epochs, validation_data=(X_valid, y_valid), callbacks=cb)
+    test_rmsle(model,X_test,y_test,name, ylog_model=ylog_model)
     save_tfmodel_in_dir(model, name, dataset_type, save_folder)
+    plot_learning_curves(history,name, nEpochs=100,maxLoss=maxLossPlot)
     return model
     
 def save_tfmodel_in_dir(model,name,dataset_type,folder):
     file_name = dataset_type.value + '_' + name + ".h5"
     if folder is not '':
-        if os.path.isdir(folder):
-            model.save(os.path.join(folder,file_name))
+        if os.path.isdir(os.path.join(*folder)):
+            model.save(os.path.join(*folder,file_name))
         else:
             print('folder not found')

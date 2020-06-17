@@ -30,7 +30,7 @@ bikes["hour"]      = bikes[dt_col].dt.hour
 bikes['dayOfWeek'] = bikes[dt_col].dt.dayofweek
 bikes['month']     = bikes[dt_col].dt.month
 bikes['year']      = bikes[dt_col].dt.year
-bikes['time']      = bikes[dt_col].dt.year+bikes[dt_col].dt.month+bikes[dt_col].dt.dayofweek+bikes[dt_col].dt.hour
+bikes['time']      = pd.Series(map(pd.Timestamp.timestamp,bikes['datetime']))
 
 # Names and renaming
 target_name = "totalRides"
@@ -47,7 +47,6 @@ for target_related_name in target_related_names:
 print2(bikes.head(),10,10)
 print(bikes.info())
 print2(bikes.describe().T,10)
-
 
 #%% CORRELATIONS
 corr_matrix, corr_target, corr_var_names = ascendingCorrelation(bikes,target_name)
@@ -73,6 +72,45 @@ plt.show()
 ax = sns.pairplot(bikes[corr_var_names[:4]])
 plt.show()
 
+#%%
+fig, axes = plt.subplots(nrows=2,ncols=2)
+fig.set_size_inches(12, 10)
+sns.boxplot(data=bikes,y=target_name,orient="v",ax=axes[0][0])
+sns.boxplot(data=bikes,y=target_name,x="season",orient="v",ax=axes[0][1])
+sns.boxplot(data=bikes,y=target_name,x="hour",orient="v",ax=axes[1][0])
+sns.boxplot(data=bikes,y=target_name,x="workingday",orient="v",ax=axes[1][1])
+
+axes[0][0].set(ylabel='Count',title="Box Plot On Count")
+axes[0][1].set(xlabel='Season', ylabel='Count',title="Box Plot On Count Across Season")
+axes[1][0].set(xlabel='Hour Of The Day', ylabel='Count',title="Box Plot On Count Across Hour Of The Day")
+axes[1][1].set(xlabel='Working Day', ylabel='Count',title="Box Plot On Count Across Working Day")
+
+#%% REMOVE OUTLIERS
+bikesWithoutOutliers = bikes[np.abs(bikes[target_name]-bikes[target_name].mean())<=(3*bikes[target_name].std())]
+print ("Shape Of The Before Ouliers: ",bikes.shape)
+print ("Shape Of The After Ouliers: ",bikesWithoutOutliers.shape)
+
+
+#%%
+fig,(ax1,ax2,ax3)= plt.subplots(nrows=3)
+fig.set_size_inches(12,20)
+sortOrder = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+hueOrder = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+
+monthAggregated = pd.DataFrame(bikes.groupby("month")[target_name].mean()).reset_index()
+monthSorted = monthAggregated.sort_values(by=target_name,ascending=False)
+sns.barplot(data=monthSorted,x="month",y="totalRides",ax=ax1)
+ax1.set(xlabel='Month', ylabel='Avearage Count',title="Average Count By Month")
+
+hourAggregated = pd.DataFrame(bikes.groupby(["hour","season"],sort=True)[target_name].mean()).reset_index()
+sns.pointplot(x=hourAggregated["hour"], y=hourAggregated[target_name],hue=hourAggregated["season"], data=hourAggregated, join=True,ax=ax2)
+ax2.set(xlabel='Hour Of The Day', ylabel='Users Count',title="Average Users Count By Hour Of The Day Across Season",label='big')
+
+hourAggregated = pd.DataFrame(bikes.groupby(["hour","dayOfWeek"],sort=True)[target_name].mean()).reset_index()
+sns.pointplot(x=hourAggregated["hour"], y=hourAggregated[target_name],hue=hourAggregated["dayOfWeek"], data=hourAggregated, join=True,ax=ax3)
+ax3.set(xlabel='Hour Of The Day', ylabel='Users Count',title="Average Users Count By Hour Of The Day Across Weekdays",label='big')
+
+
 #%% SCALED DATA
 sc=StandardScaler() 
 bikes_float = bikes.drop([dt_col, target_name], axis=1)
@@ -90,22 +128,6 @@ plot_pca_with_hue(bikes_pca,hue=bikes[target_name])
 plot_pca_with_hue(bikes_pca,hue=bikes['hour'], rot=.4)
 plot_pca_with_hue(bikes_pca,hue=bikes['temp'], rot=-.4)
 
-# bikes_pca = pd.DataFrame(data = pca.transform(bikes_scaled), columns=col_names)
-
-##% 
-# print('Starting TSNE fit 3 components')
-# tsne3 = TSNE(n_components=3, verbose=1)
-# t1 = time.time()
-# tsne3_data = tsne.fit_transform(bikes_scaled)
-# t2 = time.time()
-# bikes_tsne3 = pd.DataFrame(data = tsne3_data, columns=pca_col_names(3))
-# print("Training took {:.2f}s".format(t1 - t0))
-# plot_pca_with_hue(bikes_tsne3,hue=bikes[target_name])
-
-# Taking too much time
-# ax = sns.pairplot(bikes_pca)
-# plt.show()
-
 #%% DISTRIBUTION ANALYSIS
 short_list_dist_names = ['alpha', 'beta','cauchy', 'cosine', 'laplace', 'levy','levy_l','norm','burr','chi']
 medium_list_dist_names = ['levy','levy_l','norm', 'laplace', 'ksone', 'kstwobign', 'alpha', 'anglit','beta', 'betaprime', 'bradford', 'burr', 'burr12', 'fisk', 'cauchy', 'chi', 'chi2', 'cosine', 'dgamma', 'dweibull']
@@ -118,6 +140,10 @@ number_distributions_to_plot = 3
 # Calculate Distributions    
 target_dist = fit_scipy_distributions(bikes[target_name], 100, dist_names)
 plot_distributions(bikes[target_name],target_dist[:number_distributions_to_plot],100)
+
+# Calculate Distributions    
+target_dist = fit_scipy_distributions(bikesWithoutOutliers[target_name], 100, dist_names)
+plot_distributions(np.log(bikesWithoutOutliers[target_name]),target_dist[:number_distributions_to_plot],100)
 
 # Distribution analysis for pca components
 for pca_component in range(n_components):
@@ -138,4 +164,17 @@ plot_distributions(bikes_pca['pca_1'],both_dist_pca,100)
 
 
 
-# %%
+# %% Random Forest Model To Predict 0's In Windspeed
+from sklearn.ensemble import RandomForestRegressor
+
+dataWind0 = bikes[bikes["windspeed"]==0]
+dataWindNot0 = bikes[bikes["windspeed"]!=0]
+rfModel_wind = RandomForestRegressor()
+windColumns = ["season","weather","humidity","month","temp","year","atemp"]
+rfModel_wind.fit(dataWindNot0[windColumns], dataWindNot0["windspeed"])
+
+wind0Values = rfModel_wind.predict(X= dataWind0[windColumns])
+dataWind0["windspeed"] = wind0Values
+data = dataWindNot0.append(dataWind0)
+data.sort_index(inplace=True)
+

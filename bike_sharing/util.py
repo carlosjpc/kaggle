@@ -6,8 +6,9 @@ import seaborn as sns
 import os
 import joblib
 from tensorflow import keras
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_squared_log_error
 from enum import Enum
+import tensorflow as tf
 
 class DatasetType(Enum):
     PREP = 'prep'
@@ -107,7 +108,7 @@ def describe_Xy_data(X_train, y_train, X_test, y_test, X_valid=None,y_valid=None
     print('features     : ' + str(X_train.shape[1]))
     print('y range      : ' + str(min(y_train)) +' - ' + str(max(y_train)))
     print('train samples: ' + str(X_train.shape[0]))
-    if X_valid.all() is not None:
+    if X_valid is not None:
         print('valid samples: ' + str(X_valid.shape[0]))
     print('test samples : ' + str(X_test.shape[0]))
 
@@ -115,19 +116,32 @@ def reshape_array(var):
     if type(var) is not np.ndarray:
         var = var.to_numpy()    
     return var.reshape(-1,1)
-
-def test_mse(model, X_test, y_test, name='Model',print_=True):
-    y_pred = reshape_array(model.predict(X_test))
+        
+def test_rmsle(model, X_test, y_test, name='Model',print_=True, ylog_model=False):
+    y_pred = reshape_array(model.predict(X_test)) #np.maximum(reshape_array(model.predict(X_test)),0)
+    if ylog_model:
+        y_pred = np.exp(y_pred)
     y_test = reshape_array(y_test)
     sub = y_pred-y_test
     perc=abs(sub)/y_test*100
+    error =  rmsle(y_pred, y_test)
     if print_:
-        print("\n{} MSE: {:.0f} ~= {:.1f}%".format(name,mean_squared_error(y_pred, y_test),perc.mean()))
-    return mean_squared_error(y_pred, y_test), perc.mean()
+        print("\n{} MSE: {:.3f} ~= {:.1f}%".format(name, error, perc.mean()))
+    return error, perc.mean()
+
+def rmsle(y, y_):
+    log1 = np.nan_to_num(np.array([np.log(v + 1) for v in y]))
+    log2 = np.nan_to_num(np.array([np.log(v + 1) for v in y_]))
+    calc = (log1 - log2) ** 2
+    return np.sqrt(np.mean(calc))
+
+def tf_rmsle(y, y_):
+    return tf.math.sqrt(tf.keras.losses.MeanSquaredLogarithmicError(y,y_))
             
-def return_list_Xy(folder):
+def return_list_Xy(folders):
+    path = os.path.join(*folders)
     Xy_files = []
-    for file in os.listdir(folder):
+    for file in os.listdir(path):
         if "Xy" in file:
             Xy_files.append(file.replace('.pkl',''))
     return Xy_files
@@ -137,45 +151,47 @@ def load_dataset(dataset_type,folder):
     for file in Xy_files:
         if dataset_type.name.lower() in file.replace('Xy_','').lower():
             print(file + ' loaded\n-------')
-            return joblib.load(os.path.join(folder,file+'.pkl'))
+            return joblib.load(os.path.join(*folder,file+'.pkl'))
         
-def test_models(models_folder,data_folder):
+def test_models(models_folder,data_folder,ylog_model=False):
     mses = []
     percs = []
     names = []
     result = pd.DataFrame()
     Xy_files = return_list_Xy(data_folder)
-    for model_file in os.listdir(models_folder):
+    for model_file in os.listdir(os.path.join(*models_folder)):
         has_data = False
         for Xy_file in Xy_files:
             if Xy_file.replace('Xy_','') in model_file.lower():
-                data =  joblib.load(os.path.join(data_folder,Xy_file+'.pkl'))
-                X_test, y_test = (data[4], data[5])
+                data =  joblib.load(os.path.join(*data_folder,Xy_file+'.pkl'))
+                X_test, y_test = (data[2], data[3])
                 has_data = True
                 break
         if has_data:  
             mse, perc = (0,0)
             if model_file.endswith(".h5"):
-                model = keras.models.load_model(os.path.join(models_folder,model_file))
-                mse, perc = test_mse(model,X_test,y_test,model_file.replace(".h5",""), print_=False)                
+                model = keras.models.load_model(os.path.join(*models_folder,model_file))
+                mse, perc = test_rmsle(model,X_test,y_test,model_file.replace(".h5",""), print_=False,ylog_model=ylog_model)                
             if model_file.endswith(".pkl"):
-                model = joblib.load(os.path.join(models_folder,model_file))
-                mse, perc = test_mse(model,X_test,y_test,model_file.replace(".pkl",""), print_=False)
+                model = joblib.load(os.path.join(*models_folder,model_file))
+                mse, perc = test_rmsle(model,X_test,y_test,model_file.replace(".pkl",""), print_=False,ylog_model=ylog_model)
             mses.append(mse)
             percs.append(perc)
             names.append(model_file)
         else:
             print('no data found for model: ' + model_file)
     result['model'] = names
-    result['mse']   = mses
+    result['rmsle']   = mses
     result['perc']  = percs
     return result
             
 if __name__ == '__main__':
-    skmodels = test_models(models_folder='SKmodels',data_folder='dataset')
-    tfmodels = test_models(models_folder='TFmodels',data_folder='dataset')
-
+    
+    DATA_FOLDER = ['dataset', 'prepared_data_and_models', 'train']
+    skmodels = test_models(models_folder=['SKmodels','ylog'],data_folder=DATA_FOLDER)
+    tfmodels = test_models(models_folder=['TFmodels','ylog'],data_folder=DATA_FOLDER)
+    
     result_tests = pd.concat([skmodels,tfmodels])
-    result_tests.sort_values(by=['mse'],inplace=True)
+    result_tests.sort_values(by=['rmsle'],inplace=True)
     print(result_tests)
             
